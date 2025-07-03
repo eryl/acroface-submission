@@ -1,8 +1,6 @@
-# Code for the ACRO Face evaluation
+# Code for the ACROFace evaluation
 
-This is code to train models on facial images to detect presence or absance of some attribute (in this case diagnose acromegaly).
-
-The code is organized 
+This is code to train models on facial images to detect presence or absence of some attribute (in this case diagnose acromegaly).
 
 ## Installation
 
