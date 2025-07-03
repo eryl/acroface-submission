@@ -1,0 +1,24 @@
+[project]
+name = "acroface-submission"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = "==3.10.16"
+dependencies = ["torch==2.3", 
+                "torchvision", 
+                "opencv-python",
+                "batch-face==1.4.0", 
+                "clip",
+                "dill", 
+                "optuna", 
+                "pandas", 
+                "matplotlib", 
+                "matplotlib-venn",
+                "scikit-learn", 
+                "seaborn", 
+                "gdown",
+                "cryptography",
+                "ftfy", 
+                "regex",
+                "clip @ git+https://github.com/openai/CLIP.git",
+                "openpyxl"] 
