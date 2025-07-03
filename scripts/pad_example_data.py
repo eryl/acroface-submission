@@ -8,7 +8,7 @@ import shutil
 def main():
     parser = argparse.ArgumentParser(description="Script for example use only, make multiple copies of data for illustration")
     parser.add_argument("dataset_root", help="Directory with the example data, should have the subdirectories 'training_dataset' and 'test_dataset'", type=Path)
-    parser.add_argument("-n", help="How many subject pairs to pad up to", type=int, default=10)
+    parser.add_argument("-n", help="How many subject pairs to pad up to", type=int, default=12)
     args = parser.parse_args()
     
     training_data_path = args.dataset_root / 'training_dataset'
