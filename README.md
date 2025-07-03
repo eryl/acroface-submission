@@ -6,8 +6,9 @@ The code is organized
 
 ## Installation
 
-The suggest installation method uses the `pyproject.toml` to manage dependencies, ideally with a tool like astral `uv`. First install it by following [the instructions](https://docs.astral.sh/uv/getting-started/installation/).
-One `uv` is installed, go to the project root and run:
+The suggest installation method uses the `pyproject.toml` to manage dependencies, ideally with a tool like astral `uv`. 
+First install it by following [the instructions](https://docs.astral.sh/uv/getting-started/installation/).
+Once `uv` is installed, go to the project root and run:
 
 ```shell
 $ uv sync
@@ -24,11 +25,9 @@ $ uv pip install -e .
 ```
 
 
-
-
 ## Pretrained models
 
-This code relies on a number of pre-trained models, which will be automatically downloaded into `pretrained_models`.
+Ideally, you as a user should not have to download any models manually. They should be automatically downloaded and saved into the `pretrained_models` directory.
 
 
 ## Configuration
@@ -108,15 +107,21 @@ $ ln -s  $PWD/datasets/processed/masked_yaws_0_90_3_no-alpha dataset/acroface_ml
 
 #### Limiting participants
 
-If you wish to limit which subjects (videos) are part of the datasets, you can add a `subjects.txt` file in the experiment dataset root (e.g. `dataset/acroface_ml_dataset` in the example above). This text file should have one subject code
+If you wish to limit which subjects (videos) are part of the datasets, you can add a `subjects.txt` file in the experiment dataset root (e.g. `dataset/acroface_ml_dataset` in the example above). This text file should have one subject code per line an the experiment framework will only use subjects listed.
 
 ## Experiments
-Now that all data is set up, we can start running our experiments. They are divided according to the pre-trained model we'll use for our classification, with the following ones:
+Now that all data is set up, we can start running our experiments. They are defined by configuration files divided according to the pre-trained model we'll use for our classification, with the following ones:
 
 ```
-densenet_experiment_pretrain_20hp.py  farl_experiment_pretrain_10hp.py  inceptionv3_experiment_pretrain_20hp.py  resnet_experiment_pretrain_20hp.py 
+config/densenet_experiment_pretrain_20hp.py  
+config/farl_experiment_pretrain_10hp.py  
+config/inceptionv3_experiment_pretrain_20hp.py
+config/resnet_experiment_pretrain_20hp.py 
 ```
+
 The experiments look almost exactly the same, the difference is what model config file to load, and the different number of hyper parameter trials to perform. FaRL is significantly more costly to train, so is alotted fewer number of trials.
+
+### Making dataset splits
 
 Before we run the experiments, we need to set up the dataset splits. This is done beforehand for two main reasons: determinism across model runs (the models will be trained on the same cross validation folds) and checking (easier to inspect the dataset split to assure proper disjoint splits). The dataset split script uses an experiment config to determine how to split the data, since this is the same in all our experiments we can use any one of them:
 
@@ -195,4 +200,71 @@ predictions per subject from all predictors in a annotation file. Based on this 
 $ python analysis/make_performance_table.py analysis/bootstraped_statistics/bootstrapped_statistics.json
 ```
 
-This creates the files `analysis/results_tables/bootstrapped_results_human_readable_ci.xlsx` and `analysis/results_tables/bootstrapped_results_separate_ci.xlsx` which summarizes the results.
+This creates the files `analysis/results_tables/bootstrapped_results_human_readable_ci.xlsx` 
+and `analysis/results_tables/bootstrapped_results_separate_ci.xlsx` which summarizes the results.
+
+### Ensembling predictions
+
+The analysis scripts group predictions based on the annotation CSV file (e.g. the one in `analysis/annotations/deep_learning_annotations`), 
+so if you'd like to simulate ensembling predictions you can simply concatenate predictions from different files into new annotation files. 
+This will lead to all the the predictions per subject being part of the bootstrapped predictions, so you'll essentially get the 
+bootstrapped predictions from the ensemble of models in each annotation file, regardless of whether the annotators in that file are 
+different models or not.
+
+
+## Full example run
+
+There are a handfull of AI-generated videos in the `sora_dataset` directory which we can use to try out this framework. 
+These are not real videos (which should be obvious), but serves as a good example of how the pipeline works. Below is a full example 
+run using this data. 
+
+**n.b. at one stage we will pad this data, essentially repeating the same videos multiple times. This is to not make the size of this repository very large (including more than 20 example videos), but will mean that test and training datasets will overlap, so any results you get from this example are not valid**
+
+1. ```shell
+    $ python scripts/preprocess_data.py sora_dataset configs/preprocess/three_yaw_dataset.py
+    $ python scripts/preprocess_data.py sora_dataset configs/preprocess/9_degree_yaw_dataset.py
+    ```
+2. Inspect masked images under `sora_dataset/processed/masked_yaws_-90_81_20/` and ` sora_dataset/processed/masked_yaws_0_90_3/`.
+
+3. ```shell
+    $ python scripts/remove_alpha_channel.py sora_dataset/processed/masked_yaws_-90_81_20/
+    $ python scripts/remove_alpha_channel.py sora_dataset/processed/masked_yaws_0_90_3/
+    ```
+4. ```shell
+    $ mkdir -p dataset/acroface_ml_dataset
+    $ ln -s  $PWD/sora_dataset/processed/masked_yaws_-90_81_20_no-alpha dataset/acroface_ml_dataset/training_dataset
+    $ ln -s  $PWD/sora_dataset/processed/masked_yaws_0_90_3_no-alpha dataset/acroface_ml_dataset/test_dataset
+   ```
+
+5. The dataset only contains 4 videos, but to do nested cross validation, we need at least 20. For the sake of this example, we'll pad the dataset by repeating our images. 
+   **Only do this for this example, multiple copies of the data invalidates any results!**
+   ```shell
+    $ python scripts/pad_example_data.py dataset/acroface_ml_dataset
+   ```
+
+6. ```shell
+    $ python scripts/setup_data_splits.py configs/farl_experiment_pretrain_10hp.py
+   ```
+
+7. ```shell
+    $ python scripts/run_experiment.py configs/densenet_experiment_pretrain_20hp.py
+    $ python scripts/run_experiment.py configs/farl_experiment_pretrain_10hp.py
+    $ python scripts/run_experiment.py configs/inceptionv3_experiment_pretrain_20hp.py
+    $ python scripts/run_experiment.py configs/resnet_experiment_pretrain_20hp.py
+   ```
+
+8. ```shell
+    $ python analysis/collate_ml_predicitons.py experiments
+   ```
+
+9. ```shell
+    $ python analysis/make_bootstrap_statistics.py analysis/annotations/deep_learning_annotations
+   ```
+
+10. ```shell
+    $ python analysis/make_performance_table.py analysis/bootstraped_statistics/bootstrapped_statistics.json
+    ```
+
+Now the results are in the files `analysis/results_tables/bootstrapped_results_human_readable_ci.xlsx` 
+and `analysis/results_tables/bootstrapped_results_separate_ci.xlsx`. Note that these results are invalid, 
+they will very likely show perfect performance since the training datasets perfectly overlap the test datasets.
